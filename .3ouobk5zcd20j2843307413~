@@ -1,0 +1,59 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const mongoose = require('mongoose');
+
+// Basic Configuration
+const port = process.env.PORT || 3000;
+
+app.use(bodyParser.urlencoded({extended: false}))
+
+app.use(cors());
+
+app.use('/public', express.static(`${process.cwd()}/public`));
+
+app.get('/', function(req, res) {
+  res.sendFile(process.cwd() + '/views/index.html');
+});
+
+const urlSchema = mongoose.Schema({
+  original:{type: String, required: true},
+  short: Number
+})
+
+const theUrl = mongoose.model('theUrl', urlSchema)
+
+// Your first API endpoint
+let resObj = {}
+app.post('/api/shorturl', function(req, res) {
+  let inputUrl = req.body['url']
+  resObj['original_url'] = inputUrl
+
+  let inputShort = 1
+  theUrl.findOne({})
+        .sort({short: 'desc'})
+        .exec()
+        .then((error, result) => {
+          if(!error && result != undefined){
+            inputShort = result.short + 1
+          }
+          if(!error){
+            theUrl.findOneAndUpdate(
+              {original: inputUrl},
+              {original: inputUrl, short: inputShort},
+              {new: true, upsert: true},
+              (error, savedUrl) => {
+                if(!error){
+                  resObj['short_url'] = savedUrl.short
+                  res.json(resObj)
+                }
+              }
+            )
+          }
+        })
+});
+
+app.listen(port, function() {
+  console.log(`Listening on port ${port}`);
+});
